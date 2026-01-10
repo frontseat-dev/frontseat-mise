@@ -22,7 +22,7 @@ function PLUGIN:BackendInstall(ctx)
         arch = "arm64"
     end
 
-    local tag = string.format("framework@%s", version)
+    local tag = string.format("frontseat@%s", version)
 
     -- Create bin directory
     os.execute(string.format("mkdir -p '%s/bin' '%s/tmp'", install_path, install_path))

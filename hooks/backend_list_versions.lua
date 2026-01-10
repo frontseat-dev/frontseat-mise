@@ -1,13 +1,13 @@
 --- Lists available frontseat versions from GitHub releases
---- Fetches tags matching 'framework@x.y.z' pattern
+--- Fetches tags matching 'frontseat@x.y.z' pattern
 --- @param ctx table Context with tool info
 --- @return table List of available versions
 function PLUGIN:BackendListVersions(ctx)
     local tool = ctx.tool
     local result = {}
 
-    -- All tools (CLI and plugins) share the same version from framework releases
-    local cmd = [[gh release list --repo jbadeau/frontseat --json tagName --jq '.[].tagName' | grep '^framework@' | sed 's/framework@//' | grep -v '-']]
+    -- All tools (CLI and plugins) share the same version from frontseat releases
+    local cmd = [[gh release list --repo jbadeau/frontseat --json tagName --jq '.[].tagName' | grep '^frontseat@' | sed 's/frontseat@//' | grep -v '-']]
     local handle = io.popen(cmd)
 
     if handle then
