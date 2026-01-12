@@ -8,7 +8,7 @@ function PLUGIN:BackendListVersions(ctx)
 
     -- All tools (CLI and plugins) share the same version from frontseat releases
     -- Sort by semver (ascending) so mise picks the last one as "latest"
-    local cmd = [[gh release list --repo jbadeau/frontseat --json tagName --jq '.[].tagName' | grep '^frontseat@' | sed 's/frontseat@//' | grep -v '-' | sort -V]]
+    local cmd = [[gh release list --repo jbadeau/frontseat --json tagName --jq '.[].tagName' | grep '^v' | sed 's/^v//' | grep -v '-' | sort -V]]
     local handle = io.popen(cmd)
 
     if handle then
