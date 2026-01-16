@@ -1,6 +1,6 @@
 # frontseat-mise
 
-The offical [Frontseat](https://github.com/jbadeau/frontseat) [mise](https://mise.jdx.dev/) plugin.
+The [mise](https://mise.jdx.dev/) plugin for [Frontseat](https://github.com/jbadeau/frontseat) - The build system for the AI age.
 
 ## Prerequisites
 
