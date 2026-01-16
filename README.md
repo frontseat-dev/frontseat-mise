@@ -1,6 +1,6 @@
-# mise-frontseat
+# frontseat-mise
 
-A [mise](https://mise.jdx.dev/) backend plugin for [Frontseat](https://github.com/jbadeau/frontseat) - the polyglot build system for the rest of us.
+The offical [Frontseat](https://github.com/jbadeau/frontseat) [mise](https://mise.jdx.dev/) plugin.
 
 ## Prerequisites
 
@@ -50,28 +50,6 @@ Or via command line:
 mise use frontseat:frontseat-plugin-go@0.1.0
 mise use frontseat:frontseat-plugin-npm@0.1.0
 ```
-
-## Available Tools
-
-### CLI
-- `frontseat` - The frontseat CLI
-
-### Plugins
-- `frontseat-plugin-asyncapi` - AsyncAPI code generation
-- `frontseat-plugin-crane` - Container image management
-- `frontseat-plugin-deno` - Deno runtime support
-- `frontseat-plugin-docker` - Docker build support
-- `frontseat-plugin-dotnet` - .NET build support
-- `frontseat-plugin-github` - GitHub releases
-- `frontseat-plugin-go` - Go build support
-- `frontseat-plugin-helm` - Helm chart packaging
-- `frontseat-plugin-jib` - Java container builds
-- `frontseat-plugin-maven` - Maven build support
-- `frontseat-plugin-npm` - npm/Node.js support
-- `frontseat-plugin-openapi` - OpenAPI code generation
-- `frontseat-plugin-protobuf` - Protocol buffer compilation
-- `frontseat-plugin-rust` - Rust/Cargo support
-- `frontseat-plugin-vite` - Vite frontend builds
 
 ## List Available Versions
 
