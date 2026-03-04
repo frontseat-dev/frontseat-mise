@@ -1,25 +1,29 @@
 --- Lists available frontseat versions from GitHub releases
---- Fetches tags matching 'frontseat@x.y.z' pattern
 --- @param ctx table Context with tool info
 --- @return table List of available versions
 function PLUGIN:BackendListVersions(ctx)
-    local tool = ctx.tool
-    local result = {}
-
-    -- All tools (CLI and plugins) share the same version from frontseat releases
-    -- Sort by semver (ascending) so mise picks the last one as "latest"
-    local cmd = [[gh release list --repo jbadeau/frontseat --json tagName --jq '.[].tagName' | grep '^v' | sed 's/^v//' | grep -v '-' | sort -V]]
-    local handle = io.popen(cmd)
-
-    if handle then
-        for line in handle:lines() do
-            -- Skip prerelease versions (contain -)
-            if not string.find(line, "-") then
-                table.insert(result, line)
-            end
+    local cmd = require("cmd")
+    local result = cmd.exec("gh release list --repo jbadeau/frontseat --json tagName --jq '.[].tagName'")
+    local versions = {}
+    for line in result:gmatch("[^\r\n]+") do
+        local ver = line:match("^v(.+)")
+        if ver and not ver:find("-") then
+            table.insert(versions, ver)
         end
-        handle:close()
     end
-
-    return { versions = result }
+    -- Sort ascending so mise picks the last one as "latest"
+    table.sort(versions, function(a, b)
+        local function parts(s)
+            local t = {}
+            for n in s:gmatch("%d+") do t[#t+1] = tonumber(n) end
+            return t
+        end
+        local pa, pb = parts(a), parts(b)
+        for i = 1, math.max(#pa, #pb) do
+            local na, nb = pa[i] or 0, pb[i] or 0
+            if na ~= nb then return na < nb end
+        end
+        return false
+    end)
+    return { versions = versions }
 end
