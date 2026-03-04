@@ -12,7 +12,7 @@ The [mise](https://mise.jdx.dev/) plugin for [Frontseat](https://github.com/jbad
 Add the plugin to mise:
 
 ```bash
-mise plugin add frontseat https://github.com/jbadeau/frontseat-mise
+mise plugin add frontseat https://github.com/frontseat-dev/frontseat-mise.git
 ```
 
 ## Usage
