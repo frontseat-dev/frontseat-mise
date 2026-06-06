@@ -3,7 +3,7 @@
 --- @return table List of available versions
 function PLUGIN:BackendListVersions(ctx)
     local cmd = require("cmd")
-    local result = cmd.exec("gh release list --repo jbadeau/frontseat --json tagName --jq '.[].tagName'")
+    local result = cmd.exec("gh release list --repo frontseat-dev/frontseat --json tagName --jq '.[].tagName'")
     local versions = {}
     for line in result:gmatch("[^\r\n]+") do
         local ver = line:match("^v(.+)")

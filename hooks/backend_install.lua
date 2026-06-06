@@ -20,7 +20,7 @@ function PLUGIN:BackendInstall(ctx)
     -- Install the CLI
     local cli_tarball = "frontseat-" .. version .. "-" .. os_name .. "-" .. arch .. ".tar.gz"
     print("Downloading frontseat " .. version .. "...")
-    cmd.exec("gh release download '" .. tag .. "' --repo jbadeau/frontseat --pattern '" .. cli_tarball .. "' --dir '" .. tmp_dir .. "'")
+    cmd.exec("gh release download '" .. tag .. "' --repo frontseat-dev/frontseat --pattern '" .. cli_tarball .. "' --dir '" .. tmp_dir .. "'")
     cmd.exec("tar -xzf '" .. tmp_dir .. "/" .. cli_tarball .. "' -C '" .. bin_dir .. "'")
     cmd.exec("chmod +x '" .. bin_dir .. "/frontseat'")
     cmd.exec("rm -f '" .. tmp_dir .. "/" .. cli_tarball .. "'")
@@ -35,7 +35,7 @@ function PLUGIN:BackendInstall(ctx)
             local tarball = tool .. "-" .. version .. "-" .. os_name .. "-" .. arch .. ".tar.gz"
 
             print("Downloading " .. tool .. " " .. version .. "...")
-            cmd.exec("gh release download '" .. tag .. "' --repo jbadeau/frontseat --pattern '" .. tarball .. "' --dir '" .. tmp_dir .. "'")
+            cmd.exec("gh release download '" .. tag .. "' --repo frontseat-dev/frontseat --pattern '" .. tarball .. "' --dir '" .. tmp_dir .. "'")
             cmd.exec("tar -xzf '" .. tmp_dir .. "/" .. tarball .. "' -C '" .. bin_dir .. "'")
             cmd.exec("chmod +x '" .. bin_dir .. "/" .. tool .. "'")
             cmd.exec("rm -f '" .. tmp_dir .. "/" .. tarball .. "'")
