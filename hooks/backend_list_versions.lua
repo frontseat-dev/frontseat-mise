@@ -19,22 +19,31 @@
 ---     regression) — without this hoist, mise would still install the
 ---     broken higher version.
 ---
+--- Filtering is done in Lua against gh's raw JSON rather than via a `--jq`
+--- filter. cmd.exe (which vfox uses to shell out on Windows) treats single
+--- quotes as literal characters and `|` as a pipe operator, so a filter
+--- like `'.[] | select(...) | .tagName'` is parsed as a cmd.exe pipeline
+--- and fails with "'select' is not recognized…".
+---
 --- @param ctx table Context with tool info
 --- @return table List of available stable versions
 function PLUGIN:BackendListVersions(ctx)
     local cmd = require("cmd")
+    local json = require("json")
 
-    -- Stable, non-draft releases by GitHub's own flags.
-    local list = cmd.exec(
+    local raw = cmd.exec(
         "gh release list --repo frontseat-dev/frontseat --limit 100 " ..
-        "--json tagName,isPrerelease,isDraft " ..
-        "--jq '.[] | select(.isPrerelease==false and .isDraft==false) | .tagName'"
+        "--json tagName,isPrerelease,isDraft"
     )
+    local releases = json.decode(raw) or {}
+
     local versions = {}
-    for line in list:gmatch("[^\r\n]+") do
-        local ver = line:match("^v(.+)")
-        if ver then
-            table.insert(versions, ver)
+    for _, r in ipairs(releases) do
+        if r.isPrerelease == false and r.isDraft == false then
+            local ver = (r.tagName or ""):match("^v(.+)")
+            if ver then
+                table.insert(versions, ver)
+            end
         end
     end
 
@@ -55,15 +64,17 @@ function PLUGIN:BackendListVersions(ctx)
 
     -- Hoist GitHub's `latest` tag to the end of the list so mise's
     -- "latest" alias follows the GitHub release label, not raw SemVer
-    -- ordering. If the API call fails (network, auth) we fall back to
-    -- SemVer-sorted order, which is the previous behavior.
-    local latestRes = cmd.exec(
-        "gh api repos/frontseat-dev/frontseat/releases/latest --jq '.tag_name' 2>/dev/null || true"
+    -- ordering. If the API call fails (network, auth, or no release is
+    -- flagged latest) we fall back to SemVer-sorted order.
+    local ok, latestRaw = pcall(cmd.exec,
+        "gh api repos/frontseat-dev/frontseat/releases/latest --jq .tag_name"
     )
     local latestVer
-    for line in latestRes:gmatch("[^\r\n]+") do
-        local v = line:match("^v(.+)")
-        if v then latestVer = v; break end
+    if ok and latestRaw then
+        for line in latestRaw:gmatch("[^\r\n]+") do
+            local v = line:match("^v(.+)")
+            if v then latestVer = v; break end
+        end
     end
 
     if latestVer then
