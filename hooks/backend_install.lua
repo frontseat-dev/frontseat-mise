@@ -3,10 +3,15 @@
 ---   "frontseat:frontseat" = { version = "latest", plugins = "maven,docker,go" }
 ---
 --- Cross-platform notes:
----   * On Windows, vfox routes cmd.exec through cmd.exe. Single quotes are
----     literal characters there (not string delimiters) and Unix builtins
----     like `mkdir -p`, `chmod`, `rm -f` and `rm -rf` don't exist. We branch
----     on RUNTIME.osType to emit cmd.exe-compatible commands.
+---   * On Windows, vfox routes cmd.exec through `cmd /C <string>`, but the
+---     spawning layer escapes embedded double quotes as \" (MSVC rules),
+---     which cmd.exe does not parse — any command containing a double quote
+---     is corrupted before cmd.exe sees it. We therefore avoid double quotes
+---     entirely: every command runs through `powershell -NoProfile -Command`
+---     with single-quoted arguments (PowerShell treats them as string
+---     delimiters; cmd passes them through untouched). The command string
+---     must also avoid cmd metacharacters (| & ^ < > parens), so each call
+---     is a single statement; braces are safe.
 ---   * tar is available on Windows 10+ (bsdtar in System32), so we keep the
 ---     same `.tar.gz` asset naming upstream uses for darwin/linux.
 ---   * Upstream's `go build -o bin/<plat>/<name>` does not append `.exe` for
@@ -30,50 +35,61 @@ function PLUGIN:BackendInstall(ctx)
     local tmp_dir = install_path .. "/tmp"
 
     local function q(s)
-        -- cmd.exe groups with double quotes; sh groups with single quotes.
-        -- Paths from mise don't contain quotes, so this is safe.
-        -- On Windows also flip forward slashes from the "/bin"-style concats
-        -- above to backslashes: cmd.exe builtins (mkdir, del, rmdir, move)
-        -- reject quoted paths with mixed separators. No other q() argument
-        -- contains "/" (tags and asset patterns don't).
-        if is_windows then return '"' .. s:gsub("/", "\\") .. '"'
+        -- Both PowerShell (Windows) and sh group with single quotes; escape
+        -- embedded ones by doubling (PowerShell rule; mise paths never
+        -- contain them, but usernames can). On Windows also flip forward
+        -- slashes from the "/bin"-style concats above to backslashes.
+        if is_windows then return "'" .. s:gsub("/", "\\"):gsub("'", "''") .. "'"
         else return "'" .. s .. "'" end
+    end
+
+    --- Run a command; on Windows wrap it in powershell to avoid the
+    --- double-quote corruption described in the header notes.
+    local function run(c)
+        if is_windows then
+            return cmd.exec("powershell -NoProfile -Command " .. c)
+        end
+        return cmd.exec(c)
     end
 
     local function mkdir(path)
         if is_windows then
-            -- cmd.exe `mkdir` creates intermediate directories by default
-            -- (command extensions, on by default) but errors if the path
-            -- already exists. Guard with `if not exist`.
-            cmd.exec('if not exist ' .. q(path) .. ' mkdir ' .. q(path))
+            -- -Force makes New-Item succeed when the directory already
+            -- exists, and it creates intermediate directories.
+            run("New-Item -ItemType Directory -Force -Path " .. q(path))
         else
-            cmd.exec("mkdir -p " .. q(path))
+            run("mkdir -p " .. q(path))
         end
     end
 
+    -- Deletions are best-effort (match `rm -f`/`rm -rf`): a suppressed
+    -- PowerShell error still exits 1 from -Command, so swallow with
+    -- try/catch to keep the exit code 0.
     local function rm_file(path)
         if is_windows then
-            cmd.exec('if exist ' .. q(path) .. ' del /F /Q ' .. q(path))
+            run("try { Remove-Item -Force -Path " .. q(path) ..
+                " -ErrorAction Stop } catch { }")
         else
-            cmd.exec("rm -f " .. q(path))
+            run("rm -f " .. q(path))
         end
     end
 
     local function rm_dir(path)
         if is_windows then
-            cmd.exec('if exist ' .. q(path) .. ' rmdir /S /Q ' .. q(path))
+            run("try { Remove-Item -Recurse -Force -Path " .. q(path) ..
+                " -ErrorAction Stop } catch { }")
         else
-            cmd.exec("rm -rf " .. q(path))
+            run("rm -rf " .. q(path))
         end
     end
 
     local function extract(tarball, dest)
-        cmd.exec("tar -xzf " .. q(tarball) .. " -C " .. q(dest))
+        run("tar -xzf " .. q(tarball) .. " -C " .. q(dest))
     end
 
     local function make_executable(path)
         if not is_windows then
-            cmd.exec("chmod +x " .. q(path))
+            run("chmod +x " .. q(path))
         end
     end
 
@@ -83,9 +99,13 @@ function PLUGIN:BackendInstall(ctx)
     local function ensure_exe(bin_path)
         if not is_windows then return end
         local target = bin_path .. ".exe"
-        cmd.exec('if exist ' .. q(bin_path) ..
-                 ' if not exist ' .. q(target) ..
-                 ' move /Y ' .. q(bin_path) .. ' ' .. q(target))
+        -- Slight semantic drift from the old `if not exist <target>` guard:
+        -- -Force overwrites an existing target instead of skipping. The
+        -- source is the freshly extracted binary, so the overwrite is
+        -- idempotent; a missing source is swallowed like before.
+        run("try { Move-Item -Force -Path " .. q(bin_path) ..
+            " -Destination " .. q(target) ..
+            " -ErrorAction Stop } catch { }")
     end
 
     mkdir(bin_dir)
@@ -94,10 +114,10 @@ function PLUGIN:BackendInstall(ctx)
     -- Install the CLI
     local cli_tarball = "frontseat-" .. version .. "-" .. os_name .. "-" .. arch .. ".tar.gz"
     print("Downloading frontseat " .. version .. "...")
-    cmd.exec("gh release download " .. q(tag) ..
-             " --repo frontseat-dev/frontseat" ..
-             " --pattern " .. q(cli_tarball) ..
-             " --dir " .. q(tmp_dir))
+    run("gh release download " .. q(tag) ..
+        " --repo frontseat-dev/frontseat" ..
+        " --pattern " .. q(cli_tarball) ..
+        " --dir " .. q(tmp_dir))
     extract(tmp_dir .. "/" .. cli_tarball, bin_dir)
     ensure_exe(bin_dir .. "/frontseat")
     make_executable(bin_dir .. "/frontseat" .. exe)
@@ -113,10 +133,10 @@ function PLUGIN:BackendInstall(ctx)
             local tarball = tool .. "-" .. version .. "-" .. os_name .. "-" .. arch .. ".tar.gz"
 
             print("Downloading " .. tool .. " " .. version .. "...")
-            cmd.exec("gh release download " .. q(tag) ..
-                     " --repo frontseat-dev/frontseat" ..
-                     " --pattern " .. q(tarball) ..
-                     " --dir " .. q(tmp_dir))
+            run("gh release download " .. q(tag) ..
+                " --repo frontseat-dev/frontseat" ..
+                " --pattern " .. q(tarball) ..
+                " --dir " .. q(tmp_dir))
             extract(tmp_dir .. "/" .. tarball, bin_dir)
             ensure_exe(bin_dir .. "/" .. tool)
             make_executable(bin_dir .. "/" .. tool .. exe)
