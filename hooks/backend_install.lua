@@ -84,7 +84,16 @@ function PLUGIN:BackendInstall(ctx)
     end
 
     local function extract(tarball, dest)
-        run("tar -xzf " .. q(tarball) .. " -C " .. q(dest))
+        -- On Windows, call the System32 bsdtar by absolute path: a GNU tar
+        -- earlier on PATH (msys2/cygwin) fails on C:\ paths ("Cannot
+        -- connect to C: resolve failed"). The token must stay unquoted
+        -- (quoting would need PowerShell's & operator, a cmd metachar);
+        -- %SystemRoot%\System32 never contains spaces.
+        local tar = "tar"
+        if is_windows then
+            tar = (os.getenv("SystemRoot") or "C:\\Windows") .. "\\System32\\tar.exe"
+        end
+        run(tar .. " -xzf " .. q(tarball) .. " -C " .. q(dest))
     end
 
     local function make_executable(path)
