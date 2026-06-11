@@ -32,7 +32,12 @@ function PLUGIN:BackendInstall(ctx)
     local function q(s)
         -- cmd.exe groups with double quotes; sh groups with single quotes.
         -- Paths from mise don't contain quotes, so this is safe.
-        if is_windows then return '"' .. s .. '"' else return "'" .. s .. "'" end
+        -- On Windows also flip forward slashes from the "/bin"-style concats
+        -- above to backslashes: cmd.exe builtins (mkdir, del, rmdir, move)
+        -- reject quoted paths with mixed separators. No other q() argument
+        -- contains "/" (tags and asset patterns don't).
+        if is_windows then return '"' .. s:gsub("/", "\\") .. '"'
+        else return "'" .. s .. "'" end
     end
 
     local function mkdir(path)
