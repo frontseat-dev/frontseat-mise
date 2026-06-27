@@ -1,18 +1,23 @@
 # frontseat-mise
 
-The [mise](https://mise.jdx.dev/) plugin for [Frontseat](https://github.com/jbadeau/frontseat) - The build system for the AI age.
+The [mise](https://mise.jdx.dev/) plugin for [Frontseat](https://github.com/frontseat-dev/frontseat) - The build orchestrator for the AI age.
 
 ## Prerequisites
 
 - [mise](https://mise.jdx.dev/) installed
-- [gh](https://cli.github.com/) CLI installed and authenticated (`gh auth login`)
+- GitHub access to `frontseat-dev/frontseat`. `gh` is installed by mise as a
+  plugin dependency, but it needs a token mise's install subprocess can see.
+  Either run `gh auth login` (stores a config file), or — more reliably in CI
+  and other non-interactive shells — export `GH_TOKEN` / `GITHUB_TOKEN`. A bare
+  login token that lives only in the parent shell's environment may not reach
+  the plugin hook.
 
 ## Installation
 
 Add the plugin to mise:
 
 ```bash
-mise plugin add frontseat https://github.com/frontseat-dev/frontseat-mise.git
+mise plugin install frontseat https://github.com/frontseat-dev/frontseat-mise.git
 ```
 
 ## Usage
@@ -22,39 +27,19 @@ mise plugin add frontseat https://github.com/frontseat-dev/frontseat-mise.git
 ```toml
 # mise.toml
 [tools]
-"frontseat:frontseat" = "0.1.0"
+frontseat = "0.1.0"
 ```
 
 Or via command line:
 
 ```bash
-mise use frontseat:frontseat@0.1.0
-```
-
-### Install plugins
-
-Each plugin is installed as a separate tool:
-
-```toml
-# mise.toml
-[tools]
-"frontseat:frontseat" = "0.1.0"
-"frontseat:frontseat-plugin-go" = "0.1.0"
-"frontseat:frontseat-plugin-npm" = "0.1.0"
-"frontseat:frontseat-plugin-docker" = "0.1.0"
-```
-
-Or via command line:
-
-```bash
-mise use frontseat:frontseat-plugin-go@0.1.0
-mise use frontseat:frontseat-plugin-npm@0.1.0
+mise use frontseat@0.1.0
 ```
 
 ## List Available Versions
 
 ```bash
-mise ls-remote frontseat:frontseat
+mise ls-remote frontseat
 ```
 
 ## License
