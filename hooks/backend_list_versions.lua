@@ -1,11 +1,15 @@
---- Lists available frontseat CLI versions from GitHub releases.
----
---- mise/vfox tool plugins return an array of version records from Available.
---- Keep the same stable-release policy the backend plugin used: drafts and
---- prereleases are excluded, and GitHub's latest release is hoisted to the end.
-function PLUGIN:Available(ctx)
+--- Lists available Frontseat versions from GitHub releases.
+--- This backend installs the Frontseat CLI (`frontseat:cli`) and every Frontseat
+--- plugin (`frontseat:<name>`, e.g. `frontseat:go`). All share one versioned
+--- release stream, so version listing is the same for every tool.
+--- Drafts and prereleases are excluded; GitHub's "latest" is hoisted last.
+function PLUGIN:BackendListVersions(ctx)
     local cmd = require("cmd")
     local json = require("json")
+
+    if not ctx.tool or ctx.tool == "" then
+        error("frontseat tool name cannot be empty (use frontseat:cli or frontseat:<plugin>)")
+    end
 
     local raw = cmd.exec(
         "gh release list --repo frontseat-dev/frontseat --limit 100 " ..
@@ -32,7 +36,7 @@ function PLUGIN:Available(ctx)
         local pa, pb = parts(a), parts(b)
         for i = 1, math.max(#pa, #pb) do
             local na, nb = pa[i] or 0, pb[i] or 0
-            if na ~= nb then return na > nb end
+            if na ~= nb then return na < nb end
         end
         return false
     end)
@@ -48,21 +52,14 @@ function PLUGIN:Available(ctx)
         end
     end
 
-    -- Newest first: mise resolves `latest` to the first entry, so the GitHub
-    -- "latest" release (which may not be the highest version number, e.g. a
-    -- backport) goes to the front.
     if latestVer then
-        local hoisted = { latestVer }
+        local hoisted = {}
         for _, v in ipairs(versions) do
             if v ~= latestVer then table.insert(hoisted, v) end
         end
+        table.insert(hoisted, latestVer)
         versions = hoisted
     end
 
-    local available = {}
-    for _, version in ipairs(versions) do
-        table.insert(available, { version = version })
-    end
-
-    return available
+    return { versions = versions }
 end
