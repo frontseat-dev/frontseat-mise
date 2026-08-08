@@ -7,6 +7,13 @@ function PLUGIN:BackendListVersions(ctx)
     local cmd = require("cmd")
     local json = require("json")
 
+    -- `depends = { "gh" }` orders/expose gh only when it is a mise-managed
+    -- tool; it does not guarantee gh exists. Fail early with clear guidance.
+    if not pcall(cmd.exec, "gh --version") then
+        error("frontseat backend requires the GitHub CLI (gh). " ..
+              "Install it with `mise use -g gh`, or add gh to your mise.toml.")
+    end
+
     if not ctx.tool or ctx.tool == "" then
         error("frontseat tool name cannot be empty (use frontseat:cli or frontseat:<plugin>)")
     end

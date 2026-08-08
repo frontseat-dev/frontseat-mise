@@ -6,6 +6,15 @@
 --- <install_path>/bin, and marks it executable.
 function PLUGIN:BackendInstall(ctx)
     local cmd = require("cmd")
+
+    -- `depends = { "gh" }` in metadata.lua orders gh first and exposes it on
+    -- PATH *when gh is a mise-managed tool*; it does not guarantee gh exists.
+    -- Fail early with an actionable message instead of a cryptic exec error.
+    if not pcall(cmd.exec, "gh --version") then
+        error("frontseat backend requires the GitHub CLI (gh). " ..
+              "Install it with `mise use -g gh`, or add gh to your mise.toml.")
+    end
+
     local tool_name = ctx.tool
     local version = ctx.version
     local install_path = ctx.install_path
