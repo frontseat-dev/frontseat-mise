@@ -2,7 +2,11 @@
 --- This backend installs the Frontseat CLI (`frontseat:cli`) and every Frontseat
 --- plugin (`frontseat:<name>`, e.g. `frontseat:go`). All share one versioned
 --- release stream, so version listing is the same for every tool.
---- Drafts and prereleases are excluded; GitHub's "latest" is hoisted last.
+--- Drafts are excluded. Prereleases are LISTED but never hoisted: semver
+--- only selects a prerelease when one is asked for by name, and a
+--- prerelease exists so a branch can be installed the way a user would
+--- install it. Filtering them out made the artifacts meant for validation
+--- the one thing nobody could install.
 function PLUGIN:BackendListVersions(ctx)
     local cmd = require("cmd")
     local json = require("json")
@@ -25,11 +29,15 @@ function PLUGIN:BackendListVersions(ctx)
     local releases = json.decode(raw) or {}
 
     local versions = {}
+    local stable = {}
     for _, r in ipairs(releases) do
-        if r.isPrerelease == false and r.isDraft == false then
+        if r.isDraft == false then
             local ver = (r.tagName or ""):match("^v(.+)")
             if ver then
                 table.insert(versions, ver)
+                if r.isPrerelease == false then
+                    stable[ver] = true
+                end
             end
         end
     end
@@ -59,7 +67,9 @@ function PLUGIN:BackendListVersions(ctx)
         end
     end
 
-    if latestVer then
+    -- Hoist the stable "latest" to the end: mise treats the last entry as the
+    -- newest, and a prerelease must never become what "latest" resolves to.
+    if latestVer and stable[latestVer] then
         local hoisted = {}
         for _, v in ipairs(versions) do
             if v ~= latestVer then table.insert(hoisted, v) end

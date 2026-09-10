@@ -1,9 +1,19 @@
 --- Installs a Frontseat tool from GitHub releases.
 ---   frontseat:cli      -> the frontseat CLI       (artifact: frontseat)
 ---   frontseat:<name>   -> a plugin, e.g. go       (artifact: frontseat-plugin-<name>)
---- Downloads the release archive for the current os/arch with `gh` (the repo
---- may be private, so gh provides auth), extracts the binary into
---- <install_path>/bin, and marks it executable.
+--- Downloads the release archive with `gh` (the repo may be private, so gh
+--- provides auth), extracts it into <install_path>/bin, and marks a binary
+--- executable.
+---
+--- A plugin ships as a WASM MODULE where it can: one platform-independent
+--- artifact instead of one archive per os/arch. The daemon loads such a
+--- module under wazero with no filesystem granted, and prefers it over a
+--- same-named binary. Not every plugin qualifies — one whose own task
+--- commands invoke its executable (homebrew, scoop) still needs a binary, as
+--- does the CLI — so the module is TRIED and the per-platform archive is the
+--- fallback. That ordering, rather than a hardcoded list, is what keeps this
+--- plugin working against older releases (which have no modules at all) and
+--- against future changes to which plugins qualify.
 function PLUGIN:BackendInstall(ctx)
     local cmd = require("cmd")
 
@@ -36,6 +46,7 @@ function PLUGIN:BackendInstall(ctx)
     local arch = RUNTIME.archType
     local tag = "v" .. version
     local is_windows = (os_name == "windows")
+    local module_file = artifact .. "-" .. version .. "-wasm.tar.gz"
     -- Frontseat ships a .zip on Windows (binary inside), .tar.gz elsewhere.
     local ext = is_windows and ".zip" or ".tar.gz"
     local exe = is_windows and ".exe" or ""
@@ -74,11 +85,34 @@ function PLUGIN:BackendInstall(ctx)
     mkdir(bin_dir)
     mkdir(tmp_dir)
 
+    local function download(pattern)
+        return pcall(cmd.exec, "gh release download " .. q(tag) ..
+                     " --repo frontseat-dev/frontseat" ..
+                     " --pattern " .. q(pattern) ..
+                     " --dir " .. q(tmp_dir))
+    end
+
     print("Downloading " .. artifact .. " " .. version .. "...")
-    cmd.exec("gh release download " .. q(tag) ..
-             " --repo frontseat-dev/frontseat" ..
-             " --pattern " .. q(filename) ..
-             " --dir " .. q(tmp_dir))
+
+    -- The module first, for anything but the CLI. A release that has one
+    -- publishes no per-platform archives for that plugin, so this is not a
+    -- preference between two available forms — it is the only artifact.
+    if not is_cli and download(module_file) then
+        -- tar -xf auto-detects gzip (GNU tar) and reads zip (bsdtar on Windows).
+        cmd.exec("tar -xf " .. q(tmp_dir .. "/" .. module_file) .. " -C " .. q(bin_dir))
+        rm_file(tmp_dir .. "/" .. module_file)
+        rm_dir(tmp_dir)
+        -- No chmod: a module is not executed, it is loaded.
+        print(artifact .. " " .. version .. " installed successfully (wasm module)!")
+        return {}
+    end
+
+    local ok = download(filename)
+    if not ok then
+        error("no artifact for " .. artifact .. " " .. version .. ": tried " ..
+              (is_cli and "" or (module_file .. " and ")) .. filename ..
+              ". Check that the release exists and includes this tool.")
+    end
 
     -- tar -xf auto-detects gzip (GNU tar) and reads zip (bsdtar on Windows).
     cmd.exec("tar -xf " .. q(tmp_dir .. "/" .. filename) .. " -C " .. q(bin_dir))
