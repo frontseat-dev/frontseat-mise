@@ -143,6 +143,23 @@ function PLUGIN:BackendInstall(ctx)
     end
 
     rm_file(tmp_dir .. "/" .. filename)
+
+    -- A grid runs actions through the launcher built for its platform,
+    -- which the CLI finds beside itself: the release carries one for each
+    -- Linux grid, whatever machine the CLI runs on.
+    if is_cli then
+        for _, grid_arch in ipairs({ "amd64", "arm64" }) do
+            local launcher = "fsexec-linux-" .. grid_arch
+            if download(launcher) then
+                local from, to = q(tmp_dir .. "/" .. launcher), q(bin_dir .. "/" .. launcher)
+                cmd.exec(is_windows and ("move /Y " .. from .. " " .. to) or ("mv " .. from .. " " .. to))
+                if not is_windows then
+                    cmd.exec("chmod +x " .. to)
+                end
+            end
+        end
+    end
+
     rm_dir(tmp_dir)
     print(artifact .. " " .. version .. " installed successfully!")
 
