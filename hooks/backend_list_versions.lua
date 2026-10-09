@@ -1,43 +1,46 @@
---- Lists available Frontseat versions from GitHub releases.
+--- Lists Frontseat's versions from its public releases.
 --- This backend installs the Frontseat CLI (`frontseat:cli`) and every Frontseat
 --- plugin (`frontseat:<name>`, e.g. `frontseat:go`). All share one versioned
 --- release stream, so version listing is the same for every tool.
 --- Drafts are excluded. Prereleases are LISTED but never hoisted: semver
 --- only selects a prerelease when one is asked for by name, and a
 --- prerelease exists so a branch can be installed the way a user would
---- install it. Filtering them out made the artifacts meant for validation
---- the one thing nobody could install.
-function PLUGIN:BackendListVersions(ctx)
-    local cmd = require("cmd")
-    local json = require("json")
+--- install it.
+---
+--- The releases are public, so the listing needs no credential. GitHub
+--- limits anonymous API calls by address; with GITHUB_TOKEN or GH_TOKEN
+--- set, the call is made with it and the limit is the token's.
+local API = "https://api.github.com/repos/frontseat-dev/frontseat-releases/releases"
 
-    -- `depends = { "gh" }` orders/expose gh only when it is a mise-managed
-    -- tool; it does not guarantee gh exists. Fail early with clear guidance.
-    if not pcall(cmd.exec, "gh --version") then
-        error("frontseat backend requires the GitHub CLI (gh). " ..
-              "Install it with `mise use -g gh`, or add gh to your mise.toml.")
-    end
+function PLUGIN:BackendListVersions(ctx)
+    local http = require("http")
+    local json = require("json")
 
     if not ctx.tool or ctx.tool == "" then
         error("frontseat tool name cannot be empty (use frontseat:cli or frontseat:<plugin>)")
     end
 
-    local raw = cmd.exec(
-        "gh release list --repo frontseat-dev/frontseat --limit 100 " ..
-        "--json tagName,isPrerelease,isDraft"
-    )
-    local releases = json.decode(raw) or {}
+    local headers = { ["Accept"] = "application/vnd.github+json" }
+    local token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+    if token and token ~= "" then
+        headers["Authorization"] = "Bearer " .. token
+    end
+
+    local resp, err = http.get({ url = API .. "?per_page=100", headers = headers })
+    if err ~= nil or resp.status_code ~= 200 then
+        error("listing Frontseat releases: " .. tostring(err or (resp.status_code .. " " .. (resp.body or ""))))
+    end
+    local releases = json.decode(resp.body) or {}
 
     local versions = {}
-    local stable = {}
+    local latest
     for _, r in ipairs(releases) do
-        if r.isDraft == false then
-            local ver = (r.tagName or ""):match("^v(.+)")
-            if ver then
-                table.insert(versions, ver)
-                if r.isPrerelease == false then
-                    stable[ver] = true
-                end
+        local ver = (r.tag_name or ""):match("^v(.+)")
+        if ver and not r.draft then
+            table.insert(versions, ver)
+            -- The API lists newest first; the first stable one is the latest.
+            if not r.prerelease and not latest then
+                latest = ver
             end
         end
     end
@@ -56,25 +59,14 @@ function PLUGIN:BackendListVersions(ctx)
         return false
     end)
 
-    local ok, latestRaw = pcall(cmd.exec,
-        "gh api repos/frontseat-dev/frontseat/releases/latest --jq .tag_name"
-    )
-    local latestVer
-    if ok and latestRaw then
-        for line in latestRaw:gmatch("[^\r\n]+") do
-            local v = line:match("^v(.+)")
-            if v then latestVer = v; break end
-        end
-    end
-
-    -- Hoist the stable "latest" to the end: mise treats the last entry as the
+    -- Hoist the stable latest to the end: mise treats the last entry as the
     -- newest, and a prerelease must never become what "latest" resolves to.
-    if latestVer and stable[latestVer] then
+    if latest then
         local hoisted = {}
         for _, v in ipairs(versions) do
-            if v ~= latestVer then table.insert(hoisted, v) end
+            if v ~= latest then table.insert(hoisted, v) end
         end
-        table.insert(hoisted, latestVer)
+        table.insert(hoisted, latest)
         versions = hoisted
     end
 
