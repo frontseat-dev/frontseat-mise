@@ -5,10 +5,14 @@ The [mise](https://mise.jdx.dev/) plugin for [Frontseat](https://github.com/fron
 ## Prerequisites
 
 - [mise](https://mise.jdx.dev/) installed
-- [GitHub CLI](https://cli.github.com/) (`gh`) — `mise use -g gh`
-- `gh` authenticated (`gh auth login`) or `GH_TOKEN` / `GITHUB_TOKEN` set
-- Read access to the `frontseat-dev/frontseat` repository
-- `tar` available on PATH
+- `tar` and `sha256sum` (or `shasum`) on PATH
+
+Nothing else: the releases are public in
+[frontseat-dev/frontseat-releases](https://github.com/frontseat-dev/frontseat-releases),
+so installing needs no GitHub CLI and no credential, and every download is
+checked against the release's `checksums.txt`. Listing versions calls
+GitHub's API, which limits anonymous calls by address; set `GITHUB_TOKEN`
+(any token) where that limit is shared, as on CI runners.
 
 ## Installation
 
@@ -24,16 +28,15 @@ plugin as `frontseat:<name>` (e.g. `frontseat:go`).
 ```toml
 # mise.toml
 [tools]
-gh = "latest"
-"frontseat:cli" = "0.1.0"
-"frontseat:go" = "0.1.0"   # optional plugin
+"frontseat:cli" = "0.49.1"
+"frontseat:go" = "0.49.1"   # optional plugin
 ```
 
 Or via command line:
 
 ```bash
-mise use frontseat:cli@0.1.0
-mise use frontseat:go@0.1.0
+mise use frontseat:cli@0.49.1
+mise use frontseat:go@0.49.1
 ```
 
 ## List available versions
