@@ -8,7 +8,7 @@
 --- frontseat-plugin-<name>.wasm, that the daemon loads under wazero with no
 --- filesystem granted. The CLI ships as an archive per os/arch,
 --- frontseat-<os>-<arch>.tar.gz (.zip on Windows), holding frontseat, with
---- the Linux launchers fsexec-linux-<arch> beside it in the release.
+--- the Linux launchers fsexec-linux-<arch> the release ships beside it.
 ---
 --- Every download is checked against the release's checksums.txt.
 local RELEASES = "https://github.com/frontseat-dev/frontseat-releases/releases/download/"
@@ -109,12 +109,23 @@ function PLUGIN:BackendInstall(ctx)
 
         -- A grid runs actions through the launcher built for its platform,
         -- which the CLI finds beside itself: the release carries one for
-        -- each Linux grid, whatever machine the CLI runs on.
+        -- each Linux platform it ships a grid for, whatever machine the
+        -- CLI runs on. Which those are is the release's (0.65.0 ships
+        -- linux/amd64 only), so every launcher its checksums name is
+        -- installed, and a release with none is refused.
+        local launchers = 0
         for _, grid_arch in ipairs({ "amd64", "arm64" }) do
-            local launcher = fetch("fsexec-linux-" .. grid_arch, bin_dir)
-            if not is_windows then
-                cmd.exec("chmod +x " .. q(launcher))
+            local name = "fsexec-linux-" .. grid_arch
+            if sums[name] then
+                local launcher = fetch(name, bin_dir)
+                if not is_windows then
+                    cmd.exec("chmod +x " .. q(launcher))
+                end
+                launchers = launchers + 1
             end
+        end
+        if launchers == 0 then
+            error("frontseat " .. version .. "'s checksums.txt names no fsexec-linux-<arch> launcher")
         end
     end
 
